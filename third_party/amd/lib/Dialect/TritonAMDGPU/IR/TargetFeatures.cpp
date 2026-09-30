@@ -79,10 +79,6 @@ ISAFamily TargetFeatures::getISAFamily() const {
       return ISAFamily::CDNA3;
     if (minor == 0 && patch == 10)
       return ISAFamily::CDNA2;
-    if (minor == 0 && patch == 8)
-      return ISAFamily::CDNA1;
-    if (minor == 0 && patch == 6)
-      return ISAFamily::GCN5_1;
   }
 
   // RDNA ISA cases.
@@ -118,8 +114,6 @@ bool TargetFeatures::isGFX1250() const {
 
 int TargetFeatures::getWarpSize() const {
   switch (getISAFamily()) {
-  case ISAFamily::GCN5_1:
-  case ISAFamily::CDNA1:
   case ISAFamily::CDNA2:
   case ISAFamily::CDNA3:
   case ISAFamily::CDNA4:
@@ -300,8 +294,6 @@ bool TargetFeatures::supportMaximumMinimum() const {
 
 bool TargetFeatures::supportDppBroadcast() const {
   switch (getISAFamily()) {
-  case ISAFamily::GCN5_1:
-  case ISAFamily::CDNA1:
   case ISAFamily::CDNA2:
   case ISAFamily::CDNA3:
   case ISAFamily::CDNA4:
@@ -346,7 +338,6 @@ bool TargetFeatures::supportBitwidth32Elementwise() const {
 
 bool isCDNA(ISAFamily isaFamily) {
   switch (isaFamily) {
-  case ISAFamily::CDNA1:
   case ISAFamily::CDNA2:
   case ISAFamily::CDNA3:
   case ISAFamily::CDNA4:

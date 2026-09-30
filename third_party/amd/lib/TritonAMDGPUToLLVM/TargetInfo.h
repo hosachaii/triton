@@ -13,8 +13,6 @@ class TargetInfo : public mlir::triton::TargetInfoBase {
 public:
   explicit TargetInfo(std::optional<StringRef> arch) : targetFeatures(arch) {}
 
-  llvm::AMDGPU::IsaVersion getIsaVersion() const;
-
   StringRef getArch() const { return targetFeatures.getArch(); }
   amdgpu::ISAFamily getISAFamily() const {
     return targetFeatures.getISAFamily();

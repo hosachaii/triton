@@ -11,8 +11,6 @@ namespace mlir::triton::amdgpu {
 
 enum class ISAFamily {
   Unknown,
-  GCN5_1,
-  CDNA1,
   CDNA2,
   CDNA3,
   CDNA4,
