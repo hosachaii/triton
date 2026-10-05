@@ -334,7 +334,8 @@ LinearLayout hopperMmaToLinearLayout(ArrayRef<int64_t> shape,
 }
 
 LinearLayout sharedToLinearLayoutNoLeadingOffset(ArrayRef<int64_t> shape,
-                                                 SharedEncodingAttr shared) {
+                                                 SharedEncodingAttr shared,
+                                                 std::optional<int32_t> elemBitWidth) {
   assert(!shared.getHasLeadingOffset());
 
   MLIRContext *ctx = shared.getContext();
@@ -361,12 +362,62 @@ LinearLayout sharedToLinearLayoutNoLeadingOffset(ArrayRef<int64_t> shape,
   for (int logCol = 0; logCol < llvm::Log2_32(numCols); logCol++) {
     bases2D.push_back({0, 1 << logCol});
   }
-  for (int logRow = 0; logRow < llvm::Log2_32(numRows); logRow++) {
-    int row = 1 << logRow;
-    int vec = shared.getVec();
-    int perPhase = shared.getPerPhase();
-    int maxPhase = shared.getMaxPhase();
-    bases2D.push_back({row, (vec * ((row / perPhase) % maxPhase)) % numCols});
+
+  // --- GF(2) Swizzle Logic ---
+  // Only apply when TRITON_SHARED_SWIZZLE=gf2 AND encoding is in scope:
+  // rank == 2, hasLeadingOffset=false, perPhase == 1, maxPhase >= nChunks
+  const char *swizzleEnv = std::getenv("TRITON_SHARED_SWIZZLE");
+  bool useGF2 = swizzleEnv && std::string(swizzleEnv) == "gf2";
+  
+  bool applyGF2 = false;
+  int k = 0;
+  if (useGF2 && rank == 2 && shared.getPerPhase() == 1 && elemBitWidth.has_value()) {
+      int elemBytes = *elemBitWidth / 8;
+      int vec = shared.getVec();
+      int nChunks = 128 / (vec * elemBytes);
+      if (nChunks > 0 && llvm::isPowerOf2_32(nChunks) && shared.getMaxPhase() >= nChunks) {
+          k = llvm::Log2_32(nChunks);
+          if (k >= 2 && k <= 7) {
+              applyGF2 = true;
+          }
+      }
+  }
+
+  if (applyGF2) {
+      // NOTE: The switch is for hand-written TTGIR experiments only. Never run
+      // the python test suite or any kernel containing tt.dot with the switch on.
+      int irred = 0;
+      switch(k) {
+          case 2: irred = 0b11; break;
+          case 3: irred = 0b011; break;
+          case 4: irred = 0b0011; break;
+          case 5: irred = 0b00101; break;
+          case 6: irred = 0b000011; break;
+          case 7: irred = 0b0000011; break;
+      }
+      for (int logRow = 0; logRow < llvm::Log2_32(numRows); logRow++) {
+          int row = 1 << logRow;
+          int col_basis = 0;
+          if (logRow < k) {
+              // g = gf2_mul_by_x(1 << logRow, k)
+              int r = 1 << logRow;
+              int g = r << 1;
+              if (r & (1 << (k - 1))) {
+                  g ^= irred;
+              }
+              g &= ((1 << k) - 1);
+              col_basis = g * shared.getVec();
+          }
+          bases2D.push_back({row, col_basis % numCols});
+      }
+  } else {
+      for (int logRow = 0; logRow < llvm::Log2_32(numRows); logRow++) {
+        int row = 1 << logRow;
+        int vec = shared.getVec();
+        int perPhase = shared.getPerPhase();
+        int maxPhase = shared.getMaxPhase();
+        bases2D.push_back({row, (vec * ((row / perPhase) % maxPhase)) % numCols});
+      }
   }
   LinearLayout ctaLayout =
       LinearLayout({{S("offset"), bases2D}}, {rowDimName, colDimName});
@@ -927,7 +978,7 @@ toLinearLayout(ArrayRef<int64_t> shape, Attribute layout,
       assert(elemBitWidth.has_value());
       return sharedToLinearLayoutLeadingOffset(shape, shared, *elemBitWidth);
     } else {
-      return sharedToLinearLayoutNoLeadingOffset(shape, shared);
+      return sharedToLinearLayoutNoLeadingOffset(shape, shared, elemBitWidth);
     }
   }
 

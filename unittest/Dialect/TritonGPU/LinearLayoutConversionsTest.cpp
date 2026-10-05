@@ -1646,6 +1646,90 @@ TEST_F(LinearLayoutConversionsTest, ChooseShmemLayout_Multidim) {
                    {S("dim3"), S("dim2"), S("dim1"), S("dim0")}));
 }
 
+int gf2_mul_by_x(int r, int k) {
+    int irred = 0;
+    switch(k) {
+        case 2: irred = 0b11; break;
+        case 3: irred = 0b011; break;
+        case 4: irred = 0b0011; break;
+        case 5: irred = 0b00101; break;
+        case 6: irred = 0b000011; break;
+        case 7: irred = 0b0000011; break;
+    }
+    int g = r << 1;
+    if (r & (1 << (k - 1))) {
+        g ^= irred;
+    }
+    return g & ((1 << k) - 1);
+}
+
+int gf2_swizzle(int row, int chunk, int k) {
+    int r = row & ((1 << k) - 1);
+    int g = gf2_mul_by_x(r, k);
+    return chunk ^ g;
+}
+
+TEST_F(LinearLayoutConversionsTest, GF2Swizzle) {
+    setenv("TRITON_SHARED_SWIZZLE", "gf2", 1);
+    
+    struct TestCase {
+        int vec;
+        int elemBitWidth;
+        int maxPhase;
+    };
+    
+    std::vector<TestCase> tests = {
+        {1, 32, 32}, // fp32 vec=1, k=5
+        {4, 32, 8},  // fp32 vec=4, k=3
+        {2, 16, 32}, // fp16 vec=2, k=5
+        {8, 16, 8}   // fp16 vec=8, k=3
+    };
+    
+    for (auto t : tests) {
+        int numRows = 32;
+        int elemBytes = t.elemBitWidth / 8;
+        int nChunks = 128 / (t.vec * elemBytes);
+        int k = llvm::Log2_32(nChunks);
+        int numCols = 128 / elemBytes; // elements per row
+        
+        auto ll = toLinearLayout(
+            {numRows, numCols},
+            shared(t.vec, 1, t.maxPhase, false, {1, 1}, {1, 1}, {1, 0}, {1, 0}),
+            t.elemBitWidth);
+        
+        ASSERT_TRUE(ll.has_value());
+        
+        // Assert bijectivity (handled by layout construction internally, but we manually verify)
+        // by checking that all logical coordinates are covered.
+        std::set<std::pair<int, int>> covered;
+        
+        for (int offset = 0; offset < numRows * numCols; offset++) {
+            auto out = ll->apply({{S("offset"), offset}, {S("block"), 0}});
+            int r = -1;
+            int c = -1;
+            for (auto& pair : out) {
+                if (pair.first == S("dim0")) r = pair.second;
+                if (pair.first == S("dim1")) c = pair.second;
+            }
+            
+            covered.insert({r, c});
+            
+            int physical_row = offset / numCols;
+            int physical_col = offset % numCols;
+            
+            EXPECT_EQ(r, physical_row);
+            
+            int physical_chunk = physical_col / t.vec;
+            int expected_logical_chunk = gf2_swizzle(physical_row, physical_chunk, k);
+            int expected_logical_col = (expected_logical_chunk * t.vec) + (physical_col % t.vec);
+            
+            EXPECT_EQ(c, expected_logical_col);
+        }
+        EXPECT_EQ(covered.size(), numRows * numCols);
+    }
+    unsetenv("TRITON_SHARED_SWIZZLE");
+}
+
 } // anonymous namespace
 } // namespace mlir::triton::gpu
 
