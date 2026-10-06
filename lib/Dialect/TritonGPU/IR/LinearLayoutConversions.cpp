@@ -411,6 +411,7 @@ LinearLayout sharedToLinearLayoutNoLeadingOffset(ArrayRef<int64_t> shape,
           bases2D.push_back({row, col_basis % numCols});
       }
   } else {
+      llvm::errs() << "REACHED applyGF2=false. useGF2=" << useGF2 << " rank=" << rank << " perPhase=" << shared.getPerPhase() << " elemBitWidth.has_value=" << elemBitWidth.has_value() << "\n";
       for (int logRow = 0; logRow < llvm::Log2_32(numRows); logRow++) {
         int row = 1 << logRow;
         int vec = shared.getVec();
