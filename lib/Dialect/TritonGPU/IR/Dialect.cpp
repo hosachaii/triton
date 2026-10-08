@@ -1499,6 +1499,7 @@ Attribute SharedEncodingAttr::parse(AsmParser &parser, Type type) {
   std::optional<SmallVector<unsigned>> CTASplitNum;
   std::optional<SmallVector<unsigned>> CTAOrder;
   bool hasLeadingOffset = false;
+  unsigned swizzleKind = 0;
 
   for (const NamedAttribute &attr : dict) {
     if (attr.getName() == "vec") {
@@ -1529,6 +1530,9 @@ Attribute SharedEncodingAttr::parse(AsmParser &parser, Type type) {
       if (parseBool(parser, attr, hasLeadingOffset, "hasLeadingOffset")
               .failed())
         return {};
+    } else if (attr.getName() == "swizzleKind") {
+      if (parseUInt(parser, attr, swizzleKind, "swizzleKind").failed())
+        return {};
     } else {
       parser.emitError(parser.getNameLoc(), "unexpected key: ")
           << attr.getName().strref();
@@ -1543,7 +1547,8 @@ Attribute SharedEncodingAttr::parse(AsmParser &parser, Type type) {
 
   return parser.getChecked<SharedEncodingAttr>(parser.getContext(), vec,
                                                perPhase, maxPhase, order,
-                                               *CTALayout, hasLeadingOffset);
+                                               *CTALayout, hasLeadingOffset,
+                                               swizzleKind);
 }
 
 void SharedEncodingAttr::print(AsmPrinter &printer) const {
@@ -1554,7 +1559,28 @@ void SharedEncodingAttr::print(AsmPrinter &printer) const {
           << ", order = [" << getOrder() << "]";
   maybePrintCTALayout(getContext(), printer, getCTALayout(),
                       /*rank=*/getOrder().size());
-  printer << ", hasLeadingOffset = " << getHasLeadingOffset() << "}>";
+  printer << ", hasLeadingOffset = " << getHasLeadingOffset();
+  if (getSwizzleKind() != 0)
+    printer << ", swizzleKind = " << getSwizzleKind();
+  printer << "}>";
+}
+
+LogicalResult SharedEncodingAttr::verify(
+    function_ref<InFlightDiagnostic()> emitError, unsigned vec,
+    unsigned perPhase, unsigned maxPhase, ArrayRef<unsigned> order,
+    CTALayoutAttr CTALayout, bool hasLeadingOffset, unsigned swizzleKind) {
+  if (swizzleKind != 0) {
+    if (swizzleKind == 2 || swizzleKind == 3)
+      return emitError() << "swizzleKind 2 and 3 are not implemented";
+    if (order.size() != 2)
+      return emitError() << "swizzleKind != 0 requires rank 2";
+    if (hasLeadingOffset)
+      return emitError() << "swizzleKind != 0 requires hasLeadingOffset = false";
+    if (perPhase != 1)
+      return emitError() << "swizzleKind != 0 requires perPhase = 1";
+    // TODO: Verify maxPhase >= nChunks (requires element width, which is not available here).
+  }
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
@@ -2295,7 +2321,7 @@ struct TritonGPUInferLayoutInterface
       resultEncoding = SharedEncodingAttr::get(
           getDialect()->getContext(), enc.getVec(), enc.getPerPhase(),
           enc.getMaxPhase(), applyPermutation(invOrderUnsigned, enc.getOrder()),
-          *ctaLayout, enc.getHasLeadingOffset());
+          *ctaLayout, enc.getHasLeadingOffset(), enc.getSwizzleKind());
       return success();
     }
 
@@ -3020,10 +3046,24 @@ LogicalResult LocalAllocOp::verify() {
   if (srcTy.getElementType() != dstTy.getElementType()) {
     return emitError("result element type must match desc element type");
   }
+
   return success();
 }
 
 // LocalLoadOp
+LogicalResult LocalLoadOp::verify() {
+  auto srcTy = mlir::cast<MemDescType>(getSrc().getType());
+  if (auto sharedEnc = mlir::dyn_cast_or_null<SharedEncodingAttr>(srcTy.getEncoding())) {
+    if (sharedEnc.getSwizzleKind() != 0) {
+      auto dstTy = mlir::cast<RankedTensorType>(getType());
+      if (mlir::isa<DotOperandEncodingAttr>(dstTy.getEncoding())) {
+        return emitOpError("memdesc with swizzleKind != 0 must not be consumed by a dot operand load");
+      }
+    }
+  }
+  return success();
+}
+
 void LocalLoadOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
@@ -3096,6 +3136,12 @@ LogicalResult MemDescSubviewOp::verify() {
     return emitError("result encoding must be SharedEncodingAttr");
   }
 
+  auto srcSharedEnc = cast<SharedEncodingAttr>(srcEnc);
+  auto dstSharedEnc = cast<SharedEncodingAttr>(dstEnc);
+  if (srcSharedEnc.getSwizzleKind() != dstSharedEnc.getSwizzleKind()) {
+    return emitError("src and result must have the same swizzleKind");
+  }
+
   // TODO(jlebar): Currently we generate illegal encodings, so we can't add a
   // verifier for them.  In particular, we use the same encoding for the src and
   // dst of a subview op, when the subview removes a dimension.  That generates
@@ -3163,8 +3209,9 @@ std::string getSharedLayoutStr(RankedTensorType tensorType,
   if (!layout)
     return "";
 
+  int elementBitWidth = tensorType.getElementType().isIntOrFloat() ? tensorType.getElementType().getIntOrFloatBitWidth() : 64;
   std::optional<LinearLayout> ll =
-      triton::gpu::toLinearLayout(tensorType.getShape(), layout);
+      triton::gpu::toLinearLayout(tensorType.getShape(), layout, elementBitWidth);
   if (!ll.has_value())
     llvm::report_fatal_error("Failed to convert layout to linear layout");
 
@@ -3288,8 +3335,9 @@ std::string getDistributedLayoutStr(RankedTensorType tensorType,
   StringAttr kWarp = StringAttr::get(tensorType.getContext(), "warp");
   StringAttr kBlock = StringAttr::get(tensorType.getContext(), "block");
 
+  int elementBitWidth = tensorType.getElementType().isIntOrFloat() ? tensorType.getElementType().getIntOrFloatBitWidth() : 64;
   std::optional<LinearLayout> ll =
-      triton::gpu::toLinearLayout(tensorType.getShape(), layout);
+      triton::gpu::toLinearLayout(tensorType.getShape(), layout, elementBitWidth);
   if (!ll.has_value())
     llvm::report_fatal_error("Failed to convert layout to linear layout");
   int64_t tensorSize = product(tensorType.getShape());
@@ -3445,5 +3493,18 @@ void TritonGPUDialect::initialize() {
 LogicalResult TritonGPUDialect::verifyOperationAttribute(Operation *op,
                                                          NamedAttribute attr) {
   // TODO: fill this.
+  return success();
+}
+
+LogicalResult SharedEncodingAttr::verifyMemDescEncoding(
+    ArrayRef<int64_t> shape, Type elementType, function_ref<InFlightDiagnostic()> emitError) const {
+  if (getSwizzleKind() == 1) {
+    int elemBytes = elementType.getIntOrFloatBitWidth() / 8;
+    int vec = getVec();
+    int nChunks = 128 / (vec * elemBytes);
+    if (getMaxPhase() < (unsigned)nChunks) {
+      return emitError() << "GF2 swizzle requires maxPhase >= nChunks";
+    }
+  }
   return success();
 }

@@ -171,3 +171,16 @@ tt.func @memdesc_subview_swizzle_drop(%arg0: !tt.memdesc<32x32xf16, #triton_gpu.
   %2 = triton_gpu.memdesc_subview %arg0[%1, %1] : !tt.memdesc<32x32xf16, #triton_gpu.shared<{vec = 8, perPhase = 1, maxPhase = 8, order = [1, 0], swizzleKind = 1}>> -> !tt.memdesc<16x16xf16, #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 8, order = [1, 0]}>>
   tt.return
 }
+// -----
+
+// expected-error@+1 {{swizzleKind 2 and 3 are not implemented}}
+tt.func @memdesc_swizzlekind_2(%arg0: !tt.memdesc<32x32xf16, #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 32, order = [1, 0], swizzleKind = 2}>>) {
+  tt.return
+}
+
+// -----
+
+// expected-error@+1 {{swizzleKind 2 and 3 are not implemented}}
+tt.func @memdesc_swizzlekind_3(%arg0: !tt.memdesc<32x32xf16, #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 32, order = [1, 0], swizzleKind = 3}>>) {
+  tt.return
+}
