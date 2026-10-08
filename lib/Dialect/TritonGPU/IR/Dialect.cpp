@@ -3502,8 +3502,11 @@ LogicalResult SharedEncodingAttr::verifyMemDescEncoding(
     int elemBytes = elementType.getIntOrFloatBitWidth() / 8;
     int vec = getVec();
     int nChunks = 128 / (vec * elemBytes);
-    if (getMaxPhase() < (unsigned)nChunks) {
-      return emitError() << "GF2 swizzle requires maxPhase >= nChunks";
+    if (vec * elementType.getIntOrFloatBitWidth() != 128) {
+      return emitError() << "GF2 swizzleKind 1 requires vec * elementTypeBitWidth == 128";
+    }
+    if (getMaxPhase() != 8) {
+      return emitError() << "GF2 swizzleKind 1 requires maxPhase = 8";
     }
   }
   return success();

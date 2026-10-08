@@ -64,24 +64,30 @@ Because `maxPhase >= nChunks` (8 >= 8) is satisfied, the scope condition for GF2
 **Lane-by-Lane Derivation (Lanes 0-7)**
 A 16-byte memory access (like `.v4.u32`) for a warp is served in **four 8-lane groups**. 
 For Group 1 (lanes 0-7), under `order=[1,0]` (dim 1 contiguous) and `threadsPerWarp=[8,4]`:
-- Lane `t` (0..7) has `t_y = t % 4` and `t_x = t / 4`.
-- `t = 0..3` maps to `row=0`. Their chunks are `0, 1, 2, 3`.
-- `t = 4..7` maps to `row=1`. Their chunks are `0, 1, 2, 3`.
+- Lane `t` (0..7) has `row = t / 4`.
+- `t = 0..3` maps to `row=0`. Their logical chunks are `0, 1, 2, 3`. Each chunk is 4 banks.
+- `t = 4..7` maps to `row=1`. Their logical chunks are `0, 1, 2, 3`. Each chunk is 4 banks.
 
 **Plain XOR Expected Wavefronts:**
-- Row 0 (t=0..3) swizzles by `0`. Banks: `0, 4, 8, 12`.
-- Row 1 (t=4..7) swizzles by `row * 4 = 4`. Banks: `(chunk*4 + 4) % 32`. Banks: `4, 8, 12, 16`.
-- *Conflicts*: Bank 4 is hit by t=1 & t=4. Bank 8 is hit by t=2 & t=5. Bank 12 is hit by t=3 & t=6.
-- **Wavefronts = 2** (per 8-lane group). Total per warp = 8 wavefronts. For 8 warps = 64 wavefronts.
+- Plain XOR (perPhase=1, maxPhase=8) uses shift = `row mod 8`.
+- Row 0 (t=0..3) uses `chunk ^ 0`. Exact banks: `0, 4, 8, 12`.
+- Row 1 (t=4..7) uses `chunk ^ 1`. Exact banks: `4, 0, 12, 8`.
+- *Wavefront Count*: Bank 0 is hit by t=0 & t=5. Bank 4 is hit by t=1 & t=4. Bank 8 is hit by t=2 & t=7. Bank 12 is hit by t=3 & t=6.
+- **Wavefronts = 2** (since max hits per bank = 2).
 
 **GF2 Expected Wavefronts:**
-- GF2 swizzles via `c_swizzled = chunk ^ row`.
-- Row 0 (t=0..3): `row=0`. Banks (`(chunk^0)*4`): `0, 4, 8, 12`.
-- Row 1 (t=4..7): `row=1`. Banks (`(chunk^1)*4`): `4, 0, 12, 8`.
-- *Conflicts*: Bank 0 is hit by t=0 & t=5. Bank 4 is hit by t=1 & t=4. Bank 8 is hit by t=2 & t=7. Bank 12 is hit by t=3 & t=6.
-- **Wavefronts = 2** (per 8-lane group). Total per warp = 8 wavefronts. For 8 warps = 64 wavefronts.
+- GF2 at k=3 uses irreducible polynomial `p(x) = x^3 + x + 1`. For row=1, `G(1) = 2` (since `1 << 1 = 2`, and no `x^3` bit to overflow).
+- Row 0 (t=0..3) uses `chunk ^ 0`. Exact banks: `0, 4, 8, 12`.
+- Row 1 (t=4..7) uses `chunk ^ 2`. Exact banks: `8, 12, 0, 4`.
+- *Wavefront Count*: Bank 0 is hit by t=0 & t=6. Bank 4 is hit by t=1 & t=7. Bank 8 is hit by t=2 & t=4. Bank 12 is hit by t=3 & t=5.
+- **Wavefronts = 2** (since max hits per bank = 2).
 
-*Result:* GF2 matches Plain XOR exactly (64 wavefronts, 32 conflicts). It is actively applied, but `G(1)=2` (toggling the lowest bit) only permutes chunks locally within the same 4-chunk group. It mathematically cannot separate rows `8m` and `8m+1`.
+**Why this holds for ALL four 8-lane groups:**
+Each 8-lane group consists of exactly two adjacent rows (e.g. rows 2 and 3, rows 4 and 5, etc).
+For plain XOR, the shifts differ by 1 (e.g. `2` and `3`).
+For GF2, the shifts differ by `G(1) = 2` (since multiplication by x in GF2 distributes over addition, `G(r+1) = G(r) ^ G(1)` for adjacent rows if there's no polynomial reduction, which there isn't for the lowest bit).
+Neither a shift difference of `1` (plain XOR) nor `2` (GF2) flips the top chunk bit (the `4` bit, which distinguishes chunks 0-3 from 4-7, selecting bank half 0-15 vs 16-31). Since the top bit is untouched, both rows in the group are entirely confined to the SAME half of the banks (0-15).
+With 8 threads in the group all accessing the same 4 banks (4 chunks * 4 bytes/bank = 16 bytes = 4 chunks), each of those 4 banks is hit exactly twice. Thus, every 8-lane group takes exactly 2 wavefronts, resulting in 8 wavefronts per warp for both plain XOR and GF2.
 
 ## 3. Ops carrying MemDesc & Subview Propagation
 
