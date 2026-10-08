@@ -246,7 +246,8 @@ compared to 1*64 when the hasLeadingOffset is false.
     "unsigned":$maxPhase,
     ArrayRefParameter<"unsigned">:$order,
     "CTALayoutAttr":$CTALayout,
-    "bool":$hasLeadingOffset
+    "bool":$hasLeadingOffset,
+    "unsigned":$swizzleKind
   );
 
   let builders = [
@@ -256,8 +257,20 @@ compared to 1*64 when the hasLeadingOffset is false.
                      "ArrayRef<unsigned>":$order,
                      "CTALayoutAttr":$CTALayout), [{
         bool hasLeadingOffset = false; // default value
-        return $_get(context, vec, perPhase, maxPhase, order, CTALayout, hasLeadingOffset);
+        unsigned swizzleKind = 0; // default value
+        return $_get(context, vec, perPhase, maxPhase, order, CTALayout, hasLeadingOffset, swizzleKind);
     }]>,
+
+    AttrBuilder<(ins "unsigned":$vec,
+                     "unsigned":$perPhase,
+                     "unsigned":$maxPhase,
+                     "ArrayRef<unsigned>":$order,
+                     "CTALayoutAttr":$CTALayout,
+                     "bool":$hasLeadingOffset), [{
+        unsigned swizzleKind = 0; // default value
+        return $_get(context, vec, perPhase, maxPhase, order, CTALayout, hasLeadingOffset, swizzleKind);
+    }]>,
+
 
     AttrBuilder<(ins "DotOperandEncodingAttr":$dotOpEnc,
                      "ArrayRef<int64_t>":$shape,
@@ -401,7 +414,7 @@ compared to 1*64 when the hasLeadingOffset is false.
         if (mmaEnc.isHopper()) {
           llvm_unreachable("SharedEncodingAttr builder when the MMAEncodingAttr"
                            " is Hopper has not been implemented yet");
-          return $_get(context, 1, 1, 1, order, CTALayout, true);
+          return $_get(context, 1, 1, 1, order, CTALayout, true, 0 /*swizzleKind*/);
         }
 
         // ---- not implemented ----
@@ -452,11 +465,15 @@ compared to 1*64 when the hasLeadingOffset is false.
           llvm_unreachable("unsupported shared memory layout for MMAv3");
         }
 
-        return $_get(context, vec, perPhase, maxPhase, order, CTALayout, true);
+        return $_get(context, vec, perPhase, maxPhase, order, CTALayout, true, 0 /*swizzleKind*/);
     }]>
   ];
 
-  let extraClassDeclaration = extraBaseClassDeclaration;
+  let extraClassDeclaration = extraBaseClassDeclaration # [{
+    LinearLayout toLinearLayout(ArrayRef<int64_t> shape) const;
+    LogicalResult verifyMemDescEncoding(ArrayRef<int64_t> shape, Type elementType, function_ref<InFlightDiagnostic()> emitError) const;
+  }];
+  let genVerifyDecl = 1;
   let hasCustomAssemblyFormat = 1;
 }
 
