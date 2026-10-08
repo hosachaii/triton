@@ -98,8 +98,8 @@ module attributes {"triton_gpu.num-warps" = 1 : i32} {
 // -----
 
 // expected-error@+2 {{memdesc with swizzleKind != 0 must not be consumed by a dot operand load}}
-tt.func public @invalid_dot_operand_load(%arg0: !tt.memdesc<16x16xf16, #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 8, order = [1, 0], swizzleKind = 1}>>) {
-  %1 = triton_gpu.local_load %arg0 : !tt.memdesc<16x16xf16, #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 8, order = [1, 0], swizzleKind = 1}>> -> tensor<16x16xf16, #triton_gpu.dot_op<{opIdx = 0, parent = #triton_gpu.blocked<{sizePerThread = [1, 1], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>}>>
+tt.func public @invalid_dot_operand_load(%arg0: !tt.memdesc<16x16xf16, #triton_gpu.shared<{vec = 8, perPhase = 1, maxPhase = 8, order = [1, 0], swizzleKind = 1}>>) {
+  %1 = triton_gpu.local_load %arg0 : !tt.memdesc<16x16xf16, #triton_gpu.shared<{vec = 8, perPhase = 1, maxPhase = 8, order = [1, 0], swizzleKind = 1}>> -> tensor<16x16xf16, #triton_gpu.dot_op<{opIdx = 0, parent = #triton_gpu.blocked<{sizePerThread = [1, 1], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>}>>
   tt.return
 }
 
@@ -141,9 +141,33 @@ tt.func @local_alloc_maxphase(%arg0: tensor<16x16xf16, #triton_gpu.blocked<{size
 
 // -----
 
-// expected-error@+2 {{memdesc with swizzleKind != 0 must not be consumed by a dot operand load}}
-tt.func @local_load_dot(%arg1: !tt.memdesc<16x16xf16, #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 8, order = [1, 0], swizzleKind = 1}>>) {
-  %2 = triton_gpu.local_load %arg1 : !tt.memdesc<16x16xf16, #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 8, order = [1, 0], swizzleKind = 1}>> -> tensor<16x16xf16, #triton_gpu.dot_op<{opIdx = 0, parent = #triton_gpu.nvidia_mma<{versionMajor = 2, warpsPerCTA = [1, 1]}>, kWidth=2}>>
+// expected-error@+1 {{GF2 swizzle requires maxPhase >= nChunks}}
+tt.func @func_arg_maxphase(%arg0: !tt.memdesc<16x16xf16, #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 4, order = [1, 0], swizzleKind = 1}>>) {
   tt.return
 }
 
+// -----
+
+tt.func @subview_swizzlekind_mismatch(%arg0: !tt.memdesc<32x32xf16, #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 64, order = [1, 0], swizzleKind = 1}>>) {
+  %1 = arith.constant 0 : i32
+  // expected-error@+1 {{src and result must have the same swizzleKind}}
+  %2 = triton_gpu.memdesc_subview %arg0[%1, %1] : !tt.memdesc<32x32xf16, #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 64, order = [1, 0], swizzleKind = 1}>> -> !tt.memdesc<16x16xf16, #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 64, order = [1, 0], swizzleKind = 0}>>
+  tt.return
+}
+// -----
+
+// expected-error@+2 {{memdesc with swizzleKind != 0 must not be consumed by a dot operand load}}
+tt.func @local_load_dot(%arg1: !tt.memdesc<16x16xf16, #triton_gpu.shared<{vec = 8, perPhase = 1, maxPhase = 8, order = [1, 0], swizzleKind = 1}>>) {
+  %2 = triton_gpu.local_load %arg1 : !tt.memdesc<16x16xf16, #triton_gpu.shared<{vec = 8, perPhase = 1, maxPhase = 8, order = [1, 0], swizzleKind = 1}>> -> tensor<16x16xf16, #triton_gpu.dot_op<{opIdx = 0, parent = #triton_gpu.nvidia_mma<{versionMajor = 2, warpsPerCTA = [1, 1]}>, kWidth=2}>>
+  tt.return
+}
+
+
+// -----
+
+tt.func @memdesc_subview_swizzle_drop(%arg0: !tt.memdesc<32x32xf16, #triton_gpu.shared<{vec = 8, perPhase = 1, maxPhase = 8, order = [1, 0], swizzleKind = 1}>>) {
+  %1 = arith.constant 0 : i32
+  // expected-error@+1 {{src and result must have the same swizzleKind}}
+  %2 = triton_gpu.memdesc_subview %arg0[%1, %1] : !tt.memdesc<32x32xf16, #triton_gpu.shared<{vec = 8, perPhase = 1, maxPhase = 8, order = [1, 0], swizzleKind = 1}>> -> !tt.memdesc<16x16xf16, #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 8, order = [1, 0]}>>
+  tt.return
+}
