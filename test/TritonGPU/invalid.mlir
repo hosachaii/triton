@@ -94,3 +94,56 @@ module attributes {"triton_gpu.num-warps" = 1 : i32} {
     tt.return
   }
 }
+
+// -----
+
+// expected-error@+2 {{memdesc with swizzleKind != 0 must not be consumed by a dot operand load}}
+tt.func public @invalid_dot_operand_load(%arg0: !tt.memdesc<16x16xf16, #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 8, order = [1, 0], swizzleKind = 1}>>) {
+  %1 = triton_gpu.local_load %arg0 : !tt.memdesc<16x16xf16, #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 8, order = [1, 0], swizzleKind = 1}>> -> tensor<16x16xf16, #triton_gpu.dot_op<{opIdx = 0, parent = #triton_gpu.blocked<{sizePerThread = [1, 1], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>}>>
+  tt.return
+}
+
+// -----
+
+#shared = #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 1, order = [1, 0], CTAsPerCGA = [1, 1], CTASplitNum = [1, 1], CTAOrder = [1, 0], swizzleKind = 1}>
+#blocked = #triton_gpu.blocked<{sizePerThread = [1, 1], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+
+module attributes {"triton_gpu.num-warps" = 1 : i32} {
+  tt.func @kernel(%arg0: tensor<16x16xf16, #blocked>) {
+    // expected-error@+1 {{GF2 swizzle requires maxPhase >= nChunks}}
+    %6 = triton_gpu.local_alloc %arg0 : (tensor<16x16xf16, #blocked>) -> !tt.memdesc<16x16xf16, #shared>
+    tt.return
+  }
+}
+
+// -----
+
+// expected-error@+1 {{swizzleKind != 0 requires rank 2}}
+#shared_rank3 = #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 8, order = [2, 1, 0], swizzleKind = 1}>
+
+// -----
+
+// expected-error@+1 {{swizzleKind != 0 requires perPhase = 1}}
+#shared_perphase2 = #triton_gpu.shared<{vec = 1, perPhase = 2, maxPhase = 8, order = [1, 0], swizzleKind = 1}>
+
+// -----
+
+// expected-error@+1 {{swizzleKind != 0 requires hasLeadingOffset = false}}
+#shared_offset = #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 8, order = [1, 0], hasLeadingOffset = true, swizzleKind = 1}>
+
+// -----
+
+// expected-error@+2 {{GF2 swizzle requires maxPhase >= nChunks}}
+tt.func @local_alloc_maxphase(%arg0: tensor<16x16xf16, #triton_gpu.blocked<{sizePerThread = [1, 1], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>>) {
+  %1 = triton_gpu.local_alloc %arg0 : (tensor<16x16xf16, #triton_gpu.blocked<{sizePerThread = [1, 1], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>>) -> !tt.memdesc<16x16xf16, #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 4, order = [1, 0], swizzleKind = 1}>>
+  tt.return
+}
+
+// -----
+
+// expected-error@+2 {{memdesc with swizzleKind != 0 must not be consumed by a dot operand load}}
+tt.func @local_load_dot(%arg1: !tt.memdesc<16x16xf16, #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 8, order = [1, 0], swizzleKind = 1}>>) {
+  %2 = triton_gpu.local_load %arg1 : !tt.memdesc<16x16xf16, #triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 8, order = [1, 0], swizzleKind = 1}>> -> tensor<16x16xf16, #triton_gpu.dot_op<{opIdx = 0, parent = #triton_gpu.nvidia_mma<{versionMajor = 2, warpsPerCTA = [1, 1]}>, kWidth=2}>>
+  tt.return
+}
+
