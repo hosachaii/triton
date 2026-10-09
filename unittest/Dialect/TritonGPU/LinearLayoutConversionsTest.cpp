@@ -80,10 +80,10 @@ public:
   SharedEncodingAttr shared(unsigned vec, unsigned perPhase, unsigned maxPhase,
                             bool hasLeadingOffset, ArrayRef<unsigned> cpg,
                             ArrayRef<unsigned> cSplit, ArrayRef<unsigned> ord,
-                            ArrayRef<unsigned> cOrd) {
+                            ArrayRef<unsigned> cOrd, int swizzleKind = 0) {
     return SharedEncodingAttr::get(&ctx, vec, perPhase, maxPhase, ord,
                                    CTALayoutAttr::get(&ctx, cpg, cSplit, cOrd),
-                                   hasLeadingOffset);
+                                   hasLeadingOffset, swizzleKind);
   }
 
   StringAttr S(StringRef str) { return StringAttr::get(&ctx, str); }
@@ -1670,7 +1670,6 @@ int gf2_swizzle(int row, int chunk, int k) {
 }
 
 TEST_F(LinearLayoutConversionsTest, GF2Swizzle) {
-    setenv("TRITON_SHARED_SWIZZLE", "gf2", 1);
     
     struct TestCase {
         int vec;
@@ -1694,7 +1693,7 @@ TEST_F(LinearLayoutConversionsTest, GF2Swizzle) {
         
         auto ll = toLinearLayout(
             {numRows, numCols},
-            shared(t.vec, 1, t.maxPhase, false, {1, 1}, {1, 1}, {1, 0}, {1, 0}),
+            shared(t.vec, 1, t.maxPhase, false, {1, 1}, {1, 1}, {1, 0}, {1, 0}, /*swizzleKind=*/1),
             t.elemBitWidth);
         
         ASSERT_TRUE(ll.has_value());
@@ -1727,7 +1726,6 @@ TEST_F(LinearLayoutConversionsTest, GF2Swizzle) {
         }
         EXPECT_EQ(covered.size(), numRows * numCols);
     }
-    unsetenv("TRITON_SHARED_SWIZZLE");
 }
 
 } // anonymous namespace

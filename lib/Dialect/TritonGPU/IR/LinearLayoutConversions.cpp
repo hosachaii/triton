@@ -364,14 +364,10 @@ LinearLayout sharedToLinearLayoutNoLeadingOffset(ArrayRef<int64_t> shape,
   }
 
   // --- GF(2) Swizzle Logic ---
-  // Only apply when TRITON_SHARED_SWIZZLE=gf2 AND encoding is in scope:
-  // rank == 2, hasLeadingOffset=false, perPhase == 1, maxPhase >= nChunks
-  const char *swizzleEnv = std::getenv("TRITON_SHARED_SWIZZLE");
-  bool useGF2 = swizzleEnv && std::string(swizzleEnv) == "gf2";
-  
+  // Apply when swizzleKind == 1 (and rank == 2, perPhase == 1)
   bool applyGF2 = false;
   int k = 0;
-  if (useGF2 && rank == 2 && shared.getPerPhase() == 1 && elemBitWidth.has_value()) {
+  if (shared.getSwizzleKind() == 1 && rank == 2 && shared.getPerPhase() == 1 && elemBitWidth.has_value()) {
       int elemBytes = *elemBitWidth / 8;
       int vec = shared.getVec();
       int nChunks = 128 / (vec * elemBytes);
