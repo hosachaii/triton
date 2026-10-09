@@ -222,6 +222,7 @@ def TTG_MemDescSubviewOp : TTG_Op<"memdesc_subview", [Pure]> {
 }
 
 def TTG_LocalLoadOp : TTG_Op<"local_load", [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
+  let hasVerifier = 1;
   let summary = "Load a buffer from local memory into a distributed tensor";
 
   let description = [{
@@ -242,6 +243,7 @@ def TTG_LocalLoadOp : TTG_Op<"local_load", [DeclareOpInterfaceMethods<MemoryEffe
 }
 
 def TTG_LocalStoreOp : TTG_Op<"local_store", [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
+  let hasVerifier = 1;
   let summary = "Store a distributed tensor into a buffer in local memory";
 
   let description = [{

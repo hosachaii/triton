@@ -152,7 +152,7 @@ addition, if there's only one CTA per CGA, then Triton canonicalizes CTAOrder to
 // Shared Layout Encoding
 //===----------------------------------------------------------------------===//
 
-def SharedEncodingAttr : TritonGPU_Attr<"SharedEncoding", "shared_encoding"> {
+def SharedEncodingAttr : TritonGPU_Attr<"SharedEncoding", "shared_encoding", [MemDescEncodingTrait]> {
   let mnemonic = "shared";
 
   let description = [{

@@ -14,3 +14,13 @@ def SameLoadStoreOperandsEncoding : NativeOpTrait<"SameLoadStoreOperandsEncoding
 def SameLoadStoreOperandsAndResultEncoding : NativeOpTrait<"SameLoadStoreOperandsAndResultEncoding">;
 
 #endif // TRITON_INTERFACES
+
+def MemDescEncodingTrait : AttrInterface<"MemDescEncodingTrait"> {
+    let cppNamespace = "::mlir::triton";
+    let methods = [
+        InterfaceMethod<"Verify MemDesc encoding",
+                        "mlir::LogicalResult", "verifyMemDescEncoding",
+                        (ins "llvm::ArrayRef<int64_t>":$shape, "mlir::Type":$elementType, "llvm::function_ref<mlir::InFlightDiagnostic()>":$emitError)
+        >
+    ];
+}

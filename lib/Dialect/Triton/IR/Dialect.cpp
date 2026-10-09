@@ -14,6 +14,7 @@
 #include "mlir/Transforms/InliningUtils.h"
 #include "triton/Dialect/Triton/IR/Dialect.cpp.inc"
 #include "triton/Dialect/Triton/IR/TritonTypeInterfaces.cpp.inc"
+#include "triton/Dialect/Triton/IR/AttrInterfaces.cpp.inc"
 
 using namespace mlir;
 using namespace mlir::triton;

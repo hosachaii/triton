@@ -4,6 +4,7 @@
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Support/LLVM.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
+#include "triton/Dialect/Triton/IR/Interfaces.h"
 #include "llvm/ADT/TypeSwitch.h" // required by `Types.cpp.inc`
 
 using namespace mlir;
@@ -87,8 +88,10 @@ Type MemDescType::parse(AsmParser &parser) {
   }
   if (parser.parseGreater())
     return Type();
-  return MemDescType::get(parser.getContext(), dimensions, elementType,
-                          encoding, memorySpace, mutableMemory);
+  return MemDescType::getChecked(
+      [&]() { return parser.emitError(parser.getNameLoc()); },
+      parser.getContext(), dimensions, elementType, encoding, memorySpace,
+      mutableMemory);
 }
 
 void MemDescType::print(AsmPrinter &printer) const {
@@ -192,6 +195,22 @@ Type getElementTypeOfTensorPointerType(Type type) {
   return {};
 }
 
-} // namespace triton
+LogicalResult MemDescType::verify(
+    function_ref<InFlightDiagnostic()> emitError,
+    ArrayRef<int64_t> shape, Type elementType, Attribute encoding,
+    Attribute memorySpace, bool mutable_memory) {
+  if (!encoding)
+    return success();
 
+  if (auto memDescEncInterface =
+          mlir::dyn_cast_or_null<MemDescEncodingTrait>(encoding)) {
+    if (failed(memDescEncInterface.verifyMemDescEncoding(shape, elementType, emitError))) {
+      return failure();
+    }
+  }
+
+  return success();
+}
+
+} // namespace triton
 } // namespace mlir

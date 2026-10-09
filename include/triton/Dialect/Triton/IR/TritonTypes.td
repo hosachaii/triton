@@ -110,6 +110,7 @@ def TT_MemDescType : TritonTypeDef<"MemDesc", "memdesc", [ShapedTypeInterface]> 
     "Attribute":$memorySpace,
     "bool":$mutable_memory
   );
+  let genVerifyDecl = 1;
   let extraClassDeclaration = [{
     MemDescType cloneWith(std::optional<ArrayRef<int64_t>> shape,
                           Type elementType) const {
