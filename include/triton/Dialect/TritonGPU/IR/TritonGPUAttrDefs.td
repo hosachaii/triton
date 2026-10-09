@@ -258,10 +258,6 @@ compared to 1*64 when the hasLeadingOffset is false.
                      "CTALayoutAttr":$CTALayout), [{
         bool hasLeadingOffset = false; // default value
         unsigned swizzleKind = 0; // default value
-        const char *swizzleEnv = std::getenv("TRITON_SHARED_SWIZZLE");
-        if (swizzleEnv && std::string(swizzleEnv) == "auto") {
-            swizzleKind = 1;
-        }
         return $_get(context, vec, perPhase, maxPhase, order, CTALayout, hasLeadingOffset, swizzleKind);
     }]>,
 
@@ -272,10 +268,6 @@ compared to 1*64 when the hasLeadingOffset is false.
                      "CTALayoutAttr":$CTALayout,
                      "bool":$hasLeadingOffset), [{
         unsigned swizzleKind = 0; // default value
-        const char *swizzleEnv = std::getenv("TRITON_SHARED_SWIZZLE");
-        if (swizzleEnv && std::string(swizzleEnv) == "auto") {
-            swizzleKind = 1;
-        }
         return $_get(context, vec, perPhase, maxPhase, order, CTALayout, hasLeadingOffset, swizzleKind);
     }]>,
 
