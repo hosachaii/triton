@@ -25,7 +25,7 @@ void decomposeSplatOpToSharedLayoutConversion(ModuleOp module) {
   module.walk([&](triton::SplatOp splatOp) -> void {
     auto dstType = cast<RankedTensorType>(splatOp.getType());
     auto shared =
-        dyn_cast_or_null<triton::gpu::SharedEncodingAttr>(dstType.getEncoding());
+        dyn_cast<triton::gpu::SharedEncodingAttr>(dstType.getEncoding());
     if (shared) {
       OpBuilder builder(splatOp);
       SmallVector<unsigned, 4> sizePerThread(dstType.getRank(), 1);
@@ -54,9 +54,9 @@ void decomposeTensorCoreToDotLayoutConversion(ModuleOp module,
     OpBuilder builder(cvtOp);
     auto srcType = cast<RankedTensorType>(cvtOp.getSrc().getType());
     auto dstType = cast<RankedTensorType>(cvtOp.getType());
-    auto srcMma = dyn_cast_or_null<MmaEncodingTrait>(srcType.getEncoding());
+    auto srcMma = dyn_cast<MmaEncodingTrait>(srcType.getEncoding());
     auto dstDotOp =
-        dyn_cast_or_null<triton::gpu::DotOperandEncodingAttr>(dstType.getEncoding());
+        dyn_cast<triton::gpu::DotOperandEncodingAttr>(dstType.getEncoding());
     if (srcMma && dstDotOp && !shortcutFn(srcType, dstType)) {
       auto tmpType = RankedTensorType::get(
           dstType.getShape(), dstType.getElementType(),
@@ -86,9 +86,9 @@ void decomposeBlockedToDotLayoutConversion(ModuleOp module) {
     if (!cvtNeedsSharedMemory(srcType, dstType))
       return;
     auto srcBlocked =
-        dyn_cast_or_null<triton::gpu::BlockedEncodingAttr>(srcType.getEncoding());
+        dyn_cast<triton::gpu::BlockedEncodingAttr>(srcType.getEncoding());
     auto dstDotOp =
-        dyn_cast_or_null<triton::gpu::DotOperandEncodingAttr>(dstType.getEncoding());
+        dyn_cast<triton::gpu::DotOperandEncodingAttr>(dstType.getEncoding());
     if (srcBlocked && dstDotOp) {
       Attribute sharedMemorySpace =
           triton::gpu::SharedMemorySpaceAttr::get(srcType.getContext());

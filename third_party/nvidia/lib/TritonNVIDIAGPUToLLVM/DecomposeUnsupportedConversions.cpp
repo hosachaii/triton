@@ -32,7 +32,7 @@ public:
   LogicalResult matchAndRewrite(triton::gpu::LocalLoadOp op,
                                 PatternRewriter &rewriter) const override {
 
-    auto dstDotOp = dyn_cast_or_null<triton::gpu::DotOperandEncodingAttr>(
+    auto dstDotOp = dyn_cast<triton::gpu::DotOperandEncodingAttr>(
         op.getType().getEncoding());
     MemDescType srcType = op.getSrc().getType();
     auto sharedEncoding = cast<SharedEncodingAttr>(srcType.getEncoding());
