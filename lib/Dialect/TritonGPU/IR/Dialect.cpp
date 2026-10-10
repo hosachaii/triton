@@ -3208,10 +3208,14 @@ std::string getSharedLayoutStr(RankedTensorType tensorType,
   auto layout = tensorType.getEncoding();
   if (!layout)
     return "";
-
-  int elementBitWidth = tensorType.getElementType().isIntOrFloat() ? tensorType.getElementType().getIntOrFloatBitWidth() : 64;
+  std::optional<int32_t> optBitWidth = std::nullopt;
+  if (auto shared = dyn_cast<SharedEncodingAttr>(layout)) {
+    if (shared.getSwizzleKind() == 1) {
+      optBitWidth = tensorType.getElementType().isIntOrFloat() ? tensorType.getElementType().getIntOrFloatBitWidth() : 64;
+    }
+  }
   std::optional<LinearLayout> ll =
-      triton::gpu::toLinearLayout(tensorType.getShape(), layout, elementBitWidth);
+      triton::gpu::toLinearLayout(tensorType.getShape(), layout, optBitWidth);
   if (!ll.has_value())
     llvm::report_fatal_error("Failed to convert layout to linear layout");
 
@@ -3334,10 +3338,14 @@ std::string getDistributedLayoutStr(RankedTensorType tensorType,
   StringAttr kLane = StringAttr::get(tensorType.getContext(), "lane");
   StringAttr kWarp = StringAttr::get(tensorType.getContext(), "warp");
   StringAttr kBlock = StringAttr::get(tensorType.getContext(), "block");
-
-  int elementBitWidth = tensorType.getElementType().isIntOrFloat() ? tensorType.getElementType().getIntOrFloatBitWidth() : 64;
+  std::optional<int32_t> optBitWidth = std::nullopt;
+  if (auto shared = dyn_cast<SharedEncodingAttr>(layout)) {
+    if (shared.getSwizzleKind() == 1) {
+      optBitWidth = tensorType.getElementType().isIntOrFloat() ? tensorType.getElementType().getIntOrFloatBitWidth() : 64;
+    }
+  }
   std::optional<LinearLayout> ll =
-      triton::gpu::toLinearLayout(tensorType.getShape(), layout, elementBitWidth);
+      triton::gpu::toLinearLayout(tensorType.getShape(), layout, optBitWidth);
   if (!ll.has_value())
     llvm::report_fatal_error("Failed to convert layout to linear layout");
   int64_t tensorSize = product(tensorType.getShape());
