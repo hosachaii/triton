@@ -66,12 +66,12 @@ Type MemDescType::parse(AsmParser &parser) {
   if (parser.parseType(elementType))
     return Type();
 
+  bool mutableMemory = false;
   Attribute encoding;
   if (succeeded(parser.parseOptionalComma())) {
     if (parser.parseAttribute(encoding))
       return Type();
   }
-  bool mutableMemory = false;
   Attribute memorySpace;
   if (succeeded(parser.parseOptionalComma())) {
     if (failed(parser.parseOptionalKeyword(kMutableMemory))) {
