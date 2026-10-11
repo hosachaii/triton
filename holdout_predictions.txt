@@ -1,0 +1,29 @@
+Holdout Case Predictions (Model Version: c67ec05 / Stage 3)
+
+Case 1: fp32 vec=2 row read
+Layout: #triton_gpu.blocked<{sizePerThread = [1, 2], threadsPerWarp = [2, 16], warpsPerCTA = [4, 1], order = [1, 0]}>
+Shared: vec = 2, perPhase = 1, maxPhase = 16, order = [1, 0]
+Shape: [32, 32], Bitwidth: 32
+- swizzleKind = 0: 32 wavefronts / 0 bank conflicts
+- swizzleKind = 1: 32 wavefronts / 0 bank conflicts
+
+Case 2: fp16 vec=2 on [16,2] arrangement
+Layout: #triton_gpu.blocked<{sizePerThread = [16, 2], threadsPerWarp = [2, 16], warpsPerCTA = [1, 4], order = [1, 0]}>
+Shared: vec = 2, perPhase = 1, maxPhase = 32, order = [1, 0]
+Shape: [32, 32], Bitwidth: 16
+- swizzleKind = 0: 32 wavefronts / 16 bank conflicts
+- swizzleKind = 1: 32 wavefronts / 16 bank conflicts
+
+Case 3: fp32 column read maxPhase=8
+Layout: #triton_gpu.blocked<{sizePerThread = [1, 1], threadsPerWarp = [32, 1], warpsPerCTA = [1, 4], order = [1, 0]}>
+Shared: vec = 1, perPhase = 1, maxPhase = 8, order = [1, 0]
+Shape: [32, 32], Bitwidth: 32
+- swizzleKind = 0: 128 wavefronts / 96 bank conflicts
+- swizzleKind = 1: 128 wavefronts / 96 bank conflicts
+
+Case 4: fp32 [16,2] vec=1 with 8 warps
+Layout: #triton_gpu.blocked<{sizePerThread = [16, 2], threadsPerWarp = [2, 16], warpsPerCTA = [1, 8], order = [1, 0]}>
+Shared: vec = 1, perPhase = 1, maxPhase = 32, order = [1, 0]
+Shape: [32, 32], Bitwidth: 32
+- swizzleKind = 0: 64 wavefronts / 32 bank conflicts
+- swizzleKind = 1: 32 wavefronts / 0 bank conflicts
