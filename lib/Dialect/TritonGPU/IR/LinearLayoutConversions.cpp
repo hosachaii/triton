@@ -4,6 +4,7 @@
 #include "triton/Dialect/TritonGPU/IR/Attributes.h"
 #include "triton/Dialect/TritonGPU/IR/Dialect.h"
 #include "triton/Dialect/TritonGPU/IR/LinearLayoutConversions.h"
+#include <set>
 #include "triton/Dialect/TritonGPU/IR/TritonGPUInterfaces.h"
 #include "triton/Tools/LinearLayout.h"
 #include "triton/Tools/StrUtil.h"
@@ -1195,6 +1196,112 @@ chooseStMatrixLayout(MLIRContext *ctx, RankedTensorType tensorTy,
   else
     return chooseStMatrixLayoutLeadingOffset(
         ctx, tensorTy, repShape, paddedRepShape, order, swizzleByteSize);
+}
+
+
+std::pair<int, int> predictSharedMemoryWavefrontsAndBankConflicts(
+    ArrayRef<int64_t> shape,
+    Attribute distLayout,
+    Attribute sharedAttr,
+    int32_t elemBitWidth) {
+    
+  auto shared = cast<SharedEncodingAttr>(sharedAttr);
+    
+  MLIRContext *ctx = distLayout.getContext();
+  auto distToDim = toLinearLayout(shape, distLayout, elemBitWidth);
+  auto offsetToDim = toLinearLayout(shape, shared, elemBitWidth);
+  if (!distToDim || !offsetToDim) return {0, 0};
+
+  auto distToOffset = distToDim->invertAndCompose(*offsetToDim);
+
+  int vec = shared.getVec();
+  int bytesPerLane = vec * (elemBitWidth / 8);
+  int lanesPerGroup = 32;
+  if (bytesPerLane == 16) lanesPerGroup = 8;
+  else if (bytesPerLane == 8) lanesPerGroup = 16;
+  else if (bytesPerLane == 4) lanesPerGroup = 32;
+
+  int numWarps = 1;
+  int numBlocks = 1;
+  int numLanes = 32;
+  int numRegs = 1;
+  
+  if (distToOffset.hasInDim(S("warp"))) numWarps = distToOffset.getInDimSize(S("warp"));
+  if (distToOffset.hasInDim(S("block"))) numBlocks = distToOffset.getInDimSize(S("block"));
+  if (distToOffset.hasInDim(S("lane"))) numLanes = distToOffset.getInDimSize(S("lane"));
+  if (distToOffset.hasInDim(S("register"))) numRegs = distToOffset.getInDimSize(S("register"));
+
+  int totalWavefronts = 0;
+  int totalBankConflicts = 0;
+  
+  int numInstructions = numRegs / vec;
+  if (numInstructions == 0) numInstructions = 1;
+
+
+  for (int b = 0; b < numBlocks; b++) {
+    for (int w = 0; w < numWarps; w++) {
+      for (int inst = 0; inst < numInstructions; inst++) {
+        int baseReg = inst * vec;
+        
+        int numGroups = numLanes / lanesPerGroup;
+        if (numGroups == 0) numGroups = 1;
+
+        for (int group = 0; group < numGroups; group++) {
+          std::map<int, std::set<int>> bankWords;
+          int maxHits = 0;
+          
+          for (int laneInGroup = 0; laneInGroup < lanesPerGroup; laneInGroup++) {
+            int lane = group * lanesPerGroup + laneInGroup;
+            
+            std::vector<std::pair<StringAttr, int32_t>> ins = {
+              {S("block"), (int32_t)b},
+              {S("warp"), (int32_t)w},
+              {S("lane"), (int32_t)lane},
+              {S("register"), (int32_t)baseReg}
+            };
+            
+            auto dimRes = distToDim->apply(ins);
+            bool outOfBounds = false;
+            for (auto &kv : dimRes) {
+              if (kv.first == S("dim0") && kv.second >= shape[0]) outOfBounds = true;
+              if (kv.first == S("dim1") && kv.second >= shape[1]) outOfBounds = true;
+              if (kv.first == S("dim2") && shape.size() > 2 && kv.second >= shape[2]) outOfBounds = true;
+            }
+            if (outOfBounds) {
+              continue;
+            }
+
+            auto applyRes = distToOffset.apply(ins);
+            int offset = 0;
+            for (auto &kv : applyRes) {
+              if (kv.first == S("offset")) {
+                offset = kv.second;
+                break;
+              }
+            }
+            
+            int byteAddress = offset * (elemBitWidth / 8);
+            int wordAddress = byteAddress / 4;
+
+            int numBanks = bytesPerLane / 4;
+            if (numBanks < 1) numBanks = 1;
+            
+            for (int k = 0; k < numBanks; k++) {
+              int bank = (wordAddress + k) % 32;
+              bankWords[bank].insert(wordAddress + k);
+              if (bankWords[bank].size() > maxHits) {
+                maxHits = bankWords[bank].size();
+              }
+            }
+          }
+          
+          totalWavefronts += maxHits;
+          totalBankConflicts += (maxHits - 1);
+        }
+      }
+    }
+  }
+  return {totalWavefronts, totalBankConflicts};
 }
 
 } // namespace mlir::triton::gpu
