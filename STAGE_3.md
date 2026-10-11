@@ -3,7 +3,7 @@
 This document validates the Triton `LinearLayout` cost model for shared memory layout conversions against hardware test scenarios measured on NVIDIA GPUs using Nsight Compute (`ncu`).
 
 ## 1. Build Identity
-- **HEAD Hash**: `c222da4c35`
+- **HEAD Hash**: `12e74a5b3f`
 - **Unit Test Binary**: `unittest/Dialect/TritonGPU/LinearLayoutConversions`
 - **Unit Test Results**: `66 / 66 passed (100%)`
 
