@@ -1238,10 +1238,28 @@ std::pair<int, int> predictSharedMemoryWavefrontsAndBankConflicts(
   if (numInstructions == 0) numInstructions = 1;
 
 
+  auto isValid = [&](StringAttr dimName, int val) {
+    for (int i = 0; i < distToDim->getInDimSizeLog2(dimName); i++) {
+      if ((val & (1 << i)) == 0) continue;
+      bool isZero = true;
+      for (StringAttr outDim : distToDim->getOutDimNames()) {
+        if (distToDim->getBasis(dimName, i, outDim) != 0) {
+          isZero = false;
+          break;
+        }
+      }
+      if (isZero) return false;
+    }
+    return true;
+  };
+
   for (int b = 0; b < numBlocks; b++) {
+    if (distToOffset.hasInDim(S("block")) && !isValid(S("block"), b)) continue;
     for (int w = 0; w < numWarps; w++) {
+      if (distToOffset.hasInDim(S("warp")) && !isValid(S("warp"), w)) continue;
       for (int inst = 0; inst < numInstructions; inst++) {
         int baseReg = inst * vec;
+        if (distToOffset.hasInDim(S("register")) && !isValid(S("register"), baseReg)) continue;
         
         int numGroups = numLanes / lanesPerGroup;
         if (numGroups == 0) numGroups = 1;
@@ -1297,10 +1315,15 @@ std::pair<int, int> predictSharedMemoryWavefrontsAndBankConflicts(
           
           totalWavefronts += maxHits;
           totalBankConflicts += (maxHits - 1);
+          // Print per-warp-instruction count
+          if (maxHits > 0) {
+            llvm::outs() << "warp=" << w << " inst=" << inst << " group=" << group << " maxHits=" << maxHits << "\n";
+          }
         }
       }
     }
   }
+  llvm::outs() << "Total Wavefronts: " << totalWavefronts << "\n";
   return {totalWavefronts, totalBankConflicts};
 }
 
