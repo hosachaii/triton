@@ -1729,83 +1729,119 @@ TEST_F(LinearLayoutConversionsTest, GF2Swizzle) {
     }
 }
 
-
-
-
 } // anonymous namespace
+
+
 std::pair<int, int> predictSharedMemoryWavefrontsAndBankConflicts(
-    llvm::ArrayRef<int64_t> shape,
-    mlir::Attribute distLayout,
-    mlir::Attribute shared,
+    ArrayRef<int64_t> shape,
+    Attribute distLayout,
+    Attribute shared,
     int32_t elemBitWidth);
+
 namespace {
 
 
-TEST_F(LinearLayoutConversionsTest, SharedMemoryCostModel) {
-  // We need to parse a MLIR string and test predictSharedMemoryWavefrontsAndBankConflicts.
-  // Wait, I can just use parseAttr.
+TEST_F(LinearLayoutConversionsTest, SharedMemoryCostModel_Case1_PlainXOR) {
+  SmallVector<int64_t> shape = {32, 32};
+  MLIRContext context;
+  context.loadDialect<TritonGPUDialect>();
   auto getBlock = [&](StringRef str) {
-    return mlir::cast<BlockedEncodingAttr>(mlir::parseAttribute(str, &ctx));
+    return cast<BlockedEncodingAttr>(mlir::parseAttribute(str, &context));
   };
   auto getShared = [&](StringRef str) {
-    return mlir::cast<SharedEncodingAttr>(mlir::parseAttribute(str, &ctx));
+    return cast<SharedEncodingAttr>(mlir::parseAttribute(str, &context));
   };
-  
-  // Test case 1: [16,2] fp32 vec=1, 4 warps, plain XOR: 64 / 32
-  {
-    SmallVector<int64_t> shape = {32, 32};
-    auto block = getBlock("#triton_gpu.blocked<{sizePerThread = [16, 2], threadsPerWarp = [2, 16], warpsPerCTA = [1, 4], order = [1, 0]}>");
-    auto shared = getShared("#triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 32, order = [1, 0]}>");
-    auto res = predictSharedMemoryWavefrontsAndBankConflicts(shape, block, shared, 32);
-    EXPECT_EQ(res.first, 256);
-    EXPECT_EQ(res.second, 128);
-  }
 
-  // Test case 2: [16,2] fp32 vec=1, gf2: 32 / 0
-  {
-    SmallVector<int64_t> shape = {32, 32};
-    auto block = getBlock("#triton_gpu.blocked<{sizePerThread = [16, 2], threadsPerWarp = [2, 16], warpsPerCTA = [1, 4], order = [1, 0]}>");
-    auto shared = getShared("#triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 32, order = [1, 0], swizzleKind = 1}>");
-    auto res = predictSharedMemoryWavefrontsAndBankConflicts(shape, block, shared, 32);
-    EXPECT_EQ(res.first, 128);
-    EXPECT_EQ(res.second, 0);
-  }
-
-  // Test case 3: fp32 vec=4, 8 warps, 32x32, either kind: 64 / 32
-  {
-    SmallVector<int64_t> shape = {32, 32};
-    auto block = getBlock("#triton_gpu.blocked<{sizePerThread = [1, 4], threadsPerWarp = [8, 4], warpsPerCTA = [8, 1], order = [1, 0]}>");
-    auto shared = getShared("#triton_gpu.shared<{vec = 4, perPhase = 1, maxPhase = 32, order = [1, 0]}>");
-    auto res = predictSharedMemoryWavefrontsAndBankConflicts(shape, block, shared, 32);
-    EXPECT_EQ(res.first, 128);
-    EXPECT_EQ(res.second, 64);
-    
-    auto sharedGF2 = getShared("#triton_gpu.shared<{vec = 4, perPhase = 1, maxPhase = 32, order = [1, 0], swizzleKind = 1}>");
-    auto resGF2 = predictSharedMemoryWavefrontsAndBankConflicts(shape, block, sharedGF2, 32);
-    EXPECT_EQ(resGF2.first, 128);
-    EXPECT_EQ(resGF2.second, 64);
-  }
-
-  // Test case 4: column read maxPhase=1: 1024 / 992
-  {
-    SmallVector<int64_t> shape = {32, 32};
-    auto block = getBlock("#triton_gpu.blocked<{sizePerThread = [1, 4], threadsPerWarp = [8, 4], warpsPerCTA = [8, 1], order = [0, 1]}>"); // wait, order=[0,1] means reading by column
-    auto shared = getShared("#triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 1, order = [1, 0]}>");
-    auto res = predictSharedMemoryWavefrontsAndBankConflicts(shape, block, shared, 32);
-    EXPECT_EQ(res.first, 512);
-    EXPECT_EQ(res.second, 448);
-  }
-  
-  // Test case 5: column read maxPhase=32: 32 / 0
-  {
-    SmallVector<int64_t> shape = {32, 32};
-    auto block = getBlock("#triton_gpu.blocked<{sizePerThread = [1, 4], threadsPerWarp = [8, 4], warpsPerCTA = [8, 1], order = [0, 1]}>");
-    auto shared = getShared("#triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 32, order = [1, 0]}>");
-    auto res = predictSharedMemoryWavefrontsAndBankConflicts(shape, block, shared, 32);
-    EXPECT_EQ(res.first, 128);
-    EXPECT_EQ(res.second, 64);
-  }
+  auto block = getBlock("#triton_gpu.blocked<{sizePerThread = [16, 2], threadsPerWarp = [2, 16], warpsPerCTA = [1, 4], order = [1, 0]}>");
+  auto shared = getShared("#triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 32, order = [1, 0]}>");
+  auto res = predictSharedMemoryWavefrontsAndBankConflicts(shape, block, shared, 32);
+  EXPECT_EQ(res.first, 64);
+  EXPECT_EQ(res.second, 32);
 }
+
+TEST_F(LinearLayoutConversionsTest, SharedMemoryCostModel_Case2_GF2) {
+  SmallVector<int64_t> shape = {32, 32};
+  MLIRContext context;
+  context.loadDialect<TritonGPUDialect>();
+  auto getBlock = [&](StringRef str) {
+    return cast<BlockedEncodingAttr>(mlir::parseAttribute(str, &context));
+  };
+  auto getShared = [&](StringRef str) {
+    return cast<SharedEncodingAttr>(mlir::parseAttribute(str, &context));
+  };
+
+  auto block = getBlock("#triton_gpu.blocked<{sizePerThread = [16, 2], threadsPerWarp = [2, 16], warpsPerCTA = [1, 4], order = [1, 0]}>");
+  auto shared = getShared("#triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 32, order = [1, 0], swizzleKind = 1}>");
+  auto res = predictSharedMemoryWavefrontsAndBankConflicts(shape, block, shared, 32);
+  EXPECT_EQ(res.first, 32);
+  EXPECT_EQ(res.second, 0);
+}
+
+TEST_F(LinearLayoutConversionsTest, SharedMemoryCostModel_Case3_Vec4) {
+  SmallVector<int64_t> shape = {32, 32};
+  MLIRContext context;
+  context.loadDialect<TritonGPUDialect>();
+  auto getBlock = [&](StringRef str) {
+    return cast<BlockedEncodingAttr>(mlir::parseAttribute(str, &context));
+  };
+  auto getShared = [&](StringRef str) {
+    return cast<SharedEncodingAttr>(mlir::parseAttribute(str, &context));
+  };
+
+  auto block = getBlock("#triton_gpu.blocked<{sizePerThread = [1, 4], threadsPerWarp = [8, 4], warpsPerCTA = [8, 1], order = [1, 0]}>");
+  auto shared = getShared("#triton_gpu.shared<{vec = 4, perPhase = 1, maxPhase = 32, order = [1, 0]}>");
+  auto res = predictSharedMemoryWavefrontsAndBankConflicts(shape, block, shared, 32);
+  EXPECT_EQ(res.first, 64);
+  EXPECT_EQ(res.second, 32);
+  
+  auto sharedGF2 = getShared("#triton_gpu.shared<{vec = 4, perPhase = 1, maxPhase = 32, order = [1, 0], swizzleKind = 1}>");
+  auto resGF2 = predictSharedMemoryWavefrontsAndBankConflicts(shape, block, sharedGF2, 32);
+  EXPECT_EQ(resGF2.first, 64);
+  EXPECT_EQ(resGF2.second, 32);
+}
+
+// Measured NCU: 1024 wavefronts / 992 bank conflicts.
+// The kernel reads columns: 32 threads in each warp span dimension 0 (rows 0..31),
+// all falling into bank 0 for unswizzled (maxPhase=1) access.
+TEST_F(LinearLayoutConversionsTest, SharedMemoryCostModel_Case4_ColumnReadMaxPhase1) {
+  SmallVector<int64_t> shape = {32, 32};
+  MLIRContext context;
+  context.loadDialect<TritonGPUDialect>();
+  auto getBlock = [&](StringRef str) {
+    return cast<BlockedEncodingAttr>(mlir::parseAttribute(str, &context));
+  };
+  auto getShared = [&](StringRef str) {
+    return cast<SharedEncodingAttr>(mlir::parseAttribute(str, &context));
+  };
+
+  auto block = getBlock("#triton_gpu.blocked<{sizePerThread = [1, 1], threadsPerWarp = [32, 1], warpsPerCTA = [1, 4], order = [1, 0]}>");
+  auto shared = getShared("#triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 1, order = [1, 0]}>");
+  auto res = predictSharedMemoryWavefrontsAndBankConflicts(shape, block, shared, 32);
+  EXPECT_EQ(res.first, 1024);
+  EXPECT_EQ(res.second, 992);
+}
+
+// Measured NCU: 32 wavefronts / 0 bank conflicts.
+// With plain XOR (maxPhase=32, swizzleKind=0), column c' = c ^ (row mod 32).
+// For 32 different rows across the warp, all 32 lanes hit 32 distinct banks (0 conflicts).
+TEST_F(LinearLayoutConversionsTest, SharedMemoryCostModel_Case5_ColumnReadMaxPhase32) {
+  SmallVector<int64_t> shape = {32, 32};
+  MLIRContext context;
+  context.loadDialect<TritonGPUDialect>();
+  auto getBlock = [&](StringRef str) {
+    return cast<BlockedEncodingAttr>(mlir::parseAttribute(str, &context));
+  };
+  auto getShared = [&](StringRef str) {
+    return cast<SharedEncodingAttr>(mlir::parseAttribute(str, &context));
+  };
+
+  auto block = getBlock("#triton_gpu.blocked<{sizePerThread = [1, 1], threadsPerWarp = [32, 1], warpsPerCTA = [1, 4], order = [1, 0]}>");
+  auto shared = getShared("#triton_gpu.shared<{vec = 1, perPhase = 1, maxPhase = 32, order = [1, 0]}>");
+  auto res = predictSharedMemoryWavefrontsAndBankConflicts(shape, block, shared, 32);
+  EXPECT_EQ(res.first, 32);
+  EXPECT_EQ(res.second, 0);
+}
+
 
 } // anonymous namespace
 } // namespace mlir::triton::gpu

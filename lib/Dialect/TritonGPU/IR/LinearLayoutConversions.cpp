@@ -1315,16 +1315,12 @@ std::pair<int, int> predictSharedMemoryWavefrontsAndBankConflicts(
           
           totalWavefronts += maxHits;
           totalBankConflicts += (maxHits - 1);
-          // Print per-warp-instruction count
-          if (maxHits > 0) {
-            llvm::outs() << "warp=" << w << " inst=" << inst << " group=" << group << " maxHits=" << maxHits << "\n";
-          }
+
         }
       }
     }
   }
-  llvm::outs() << "Total Wavefronts: " << totalWavefronts << "\n";
-  return {totalWavefronts, totalBankConflicts};
+    return {totalWavefronts, totalBankConflicts};
 }
 
 } // namespace mlir::triton::gpu
