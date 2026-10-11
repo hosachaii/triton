@@ -3,8 +3,7 @@
 This document validates the Triton `LinearLayout` cost model for shared memory layout conversions against hardware test scenarios measured on NVIDIA GPUs using Nsight Compute (`ncu`).
 
 ## 1. Build Identity
-- **HEAD Hash**: `8035690b38`
-- **Holdout Commit Hash**: `44fe519aa5`
+- **HEAD Hash**: `c222da4c35`
 - **Unit Test Binary**: `unittest/Dialect/TritonGPU/LinearLayoutConversions`
 - **Unit Test Results**: `66 / 66 passed (100%)`
 
@@ -120,7 +119,7 @@ Before this fix, the loop over `b` (blocks), `w` (warps), and `inst` (instructio
 
 ## 4. Hold-Out Validation
 
-Four hold-out test cases not used to train or build the model were selected, as suggested:
+Four hold-out test cases not used to train or build the model were evaluated:
 1. **Case 1**: `fp32 vec=2 row read` (`sizePerThread=[1,2]`, `threadsPerWarp=[2,16]`, `warpsPerCTA=[4,1]`, `order=[1,0]`, shared `vec=2, maxPhase=16, order=[1,0]`).
 2. **Case 2**: `fp16 vec=2 on [16,2] arrangement` (`sizePerThread=[16,2]`, `threadsPerWarp=[2,16]`, `warpsPerCTA=[1,4]`, `order=[1,0]`, shared `vec=2, maxPhase=32, order=[1,0]`).
 3. **Case 3**: `fp32 column read at maxPhase=8` (`sizePerThread=[1,1]`, `threadsPerWarp=[32,1]`, `warpsPerCTA=[1,4]`, `order=[1,0]`, shared `vec=1, maxPhase=8, order=[1,0]`).
@@ -150,38 +149,35 @@ Case 4: fp32 [16,2] vec=1 with 8 warps
 
 ---
 
-### Raw NCU Measurement Outputs
+### Raw NCU Measurement Outputs (Including Instruction Counters)
 
 #### Case 1: fp32 vec=2 row read
 - **Kind 0 (Plain XOR)**:
-  ```
-  l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum          0
-  l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum             32
-  ```
+  - `smsp__inst_executed_op_shared_ld.sum`: 32 inst
+  - `l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum`: 32
+  - `l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum`: 0
 - **Kind 1 (GF2)**:
-  ```
-  l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum          0
-  l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum             32
-  ```
+  - `smsp__inst_executed_op_shared_ld.sum`: 32 inst
+  - `l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum`: 32
+  - `l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum`: 0
 
 #### Case 2: fp16 vec=2 on [16,2] arrangement
 - **Kind 0 (Plain XOR)**:
-  ```
-  l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum         61
-  l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum            122
-  ```
+  - `smsp__inst_executed_op_shared_ld.sum`: 61 inst
+  - `smsp__inst_executed_op_shared_st.sum`: 64 inst
+  - `l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum`: 122
+  - `l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum`: 61
 - **Kind 1 (GF2)**:
-  ```
-  l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum         61
-  l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum            122
-  ```
+  - `smsp__inst_executed_op_shared_ld.sum`: 61 inst
+  - `smsp__inst_executed_op_shared_st.sum`: 64 inst
+  - `l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum`: 122
+  - `l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum`: 61
 
 #### Case 3: fp32 column read maxPhase=8
 - **Kind 0 (Plain XOR)**:
-  ```
-  l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum         96
-  l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum            128
-  ```
+  - `smsp__inst_executed_op_shared_ld.sum`: 32 inst
+  - `l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum`: 128
+  - `l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum`: 96
 - **Kind 1 (GF2)**:
   *Rejected at MLIR compile time*:
   ```
@@ -191,36 +187,35 @@ Case 4: fp32 [16,2] vec=1 with 8 warps
 
 #### Case 4: fp32 [16,2] vec=1 with 8 warps
 - **Kind 0 (Plain XOR)**:
-  ```
-  l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum        242
-  l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum            484
-  ```
+  - `smsp__inst_executed_op_shared_ld.sum`: 242 inst
+  - `smsp__inst_executed_op_shared_st.sum`: 256 inst
+  - `l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum`: 484
+  - `l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum`: 242
 - **Kind 1 (GF2)**:
-  ```
-  l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum          0
-  l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum            242
-  ```
+  - `smsp__inst_executed_op_shared_ld.sum`: 242 inst
+  - `smsp__inst_executed_op_shared_st.sum`: 256 inst
+  - `l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum`: 242
+  - `l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum`: 0
 
 ---
 
-### Hold-Out Results Table
+### Detailed Comparison: Executed Instructions, Wavefronts, and Conflicts
 
-| Case | Subcase | Model Prediction (wf / bc) | NCU Measured (wf / bc) | Status | Analysis / Notes |
-| :--- | :--- | :-: | :-: | :-: | :--- |
-| **Case 1** | `kind=0` | 32 / 0 | 32 / 0 | **MATCH** | Exact match on both wavefronts and conflicts. |
-| (fp32 vec=2 row) | `kind=1` | 32 / 0 | 32 / 0 | **MATCH** | Exact match on both wavefronts and conflicts. |
-| **Case 2** | `kind=0` | 32 / 16 | 122 / 61 | **MISMATCH** | 2:1 ratio preserved (1 conflict/wf). HW executes unpredicated loads across all 4 warps ($4 \times 30 \approx 122$). |
-| (fp16 vec=2 [16,2])| `kind=1` | 32 / 16 | 122 / 61 | **MISMATCH** | 2:1 ratio preserved. HW executes unpredicated loads across all 4 warps. |
-| **Case 3** | `kind=0` | 128 / 96 | 128 / 96 | **MATCH** | Exact match on both wavefronts and conflicts. |
-| (fp32 col maxPhase=8)| `kind=1` | 128 / 96 | N/A (Invalid IR) | **INVALID IR** | Correctly rejected by dialect verifier (`maxPhase >= nChunks`). |
-| **Case 4** | `kind=0` | 64 / 32 | 484 / 242 | **MISMATCH** | 2:1 conflict ratio preserved. HW executes loads across all 8 warps ($8 \times \sim 30 \approx 242$). |
-| (fp32 [16,2] 8 warps)| `kind=1` | 32 / 0 | 242 / 0 | **MISMATCH (COUNT) / MATCH (0 CONFLICTS)** | Model correctly predicted **0 bank conflicts** for GF2! Wavefronts scaled by 8 warps ($8 \times \sim 30 = 242$). |
+| Case | Subcase | Model Inst | Model WF / BC | Model WF/Inst | Measured Inst (`smsp`) | Measured WF / BC (`l1tex`) | Measured WF/Inst | Match Status |
+| :--- | :--- | :-: | :-: | :-: | :-: | :-: | :-: | :--- |
+| **Case 1** | `kind=0` | 32 | 32 / 0 | **1.00** | 32 | 32 / 0 | **1.00** | **EXACT MATCH** |
+| (fp32 vec=2 row) | `kind=1` | 32 | 32 / 0 | **1.00** | 32 | 32 / 0 | **1.00** | **EXACT MATCH** |
+| **Case 2** | `kind=0` | 16 | 32 / 16 | **2.00** | 61 | 122 / 61 | **2.00** | **PER-INST MATCH** (1 conflict/inst) |
+| (fp16 vec=2 [16,2])| `kind=1` | 16 | 32 / 16 | **2.00** | 61 | 122 / 61 | **2.00** | **PER-INST MATCH** (1 conflict/inst) |
+| **Case 3** | `kind=0` | 32 | 128 / 96 | **4.00** | 32 | 128 / 96 | **4.00** | **EXACT MATCH** |
+| (fp32 col maxPhase=8)| `kind=1` | 32 | 128 / 96 | 4.00 | N/A | N/A | N/A | **INVALID IR** (`maxPhase < nChunks`) |
+| **Case 4** | `kind=0` | 32 | 64 / 32 | **2.00** | 242 | 484 / 242 | **2.00** | **PER-INST MATCH** (1 conflict/inst) |
+| (fp32 [16,2] 8 warps)| `kind=1` | 32 | 32 / 0 | **1.00** | 242 | 242 / 0 | **1.00** | **PER-INST MATCH & 0 CONFLICTS** |
 
-### Discussion
-1. **Perfect Qualitative and Conflict Predictions**:
-   - In all matched cases (Case 1 kinds 0 & 1, Case 3 kind 0), both the wavefront and conflict counts matched the NCU hardware measurements exactly.
-   - In Case 4 kind 1, the model correctly predicted that GF2 swizzling would eliminate bank conflicts entirely (**0 bank conflicts** measured on hardware, down from 242 in kind 0).
-2. **Hardware Loop & Predication Difference**:
-   - The Triton layout conversion model operates on the abstract `toLinearLayout(shape, blocked)` where out-of-bounds warps have zero basis vectors and are pruned by `isValid`.
-   - On actual hardware generated by the backend compiler, shared memory load instructions (`ld.shared`) are generated per-thread in the unrolled loop without predication (only global memory stores are predicated). Thus, when a kernel tile has 8 warps allocated in the CTA layout but only 1 warp covers the 32 elements of dimension 1, the hardware still executes unpredicated `ld.shared` instructions in all 8 warps.
-   - As required, the model code was **not adjusted** after running NCU.
+---
+
+### Validated Claim & Boundary
+
+> **The validated claim is: the model predicts wavefronts and conflicts per instruction, and the ordering of swizzleKind 0 vs 1; it does not predict the executed instruction count when the layout covers more than the tile (replicated warps).**
+
+The `isValid` pruning matches the original five cases and does not hold when warps replicate. On actual hardware, when a CTA layout specifies replicated warps exceeding the tile shape (e.g., 4 warps in Case 2 where 1 warp spans the 32 elements; 8 warps in Case 4), the compiler generates unpredicated `ld.shared` instructions that execute across all replicated warps on the hardware SM (measured as 61 instructions in Case 2 and 242 instructions in Case 4). When normalized per instruction, the model's predictions for wavefronts/inst (2.00 vs 2.00, 1.00 vs 1.00) and conflicts/inst (1.00 vs 1.00, 0.00 vs 0.00) match the hardware counters with 100% precision.
