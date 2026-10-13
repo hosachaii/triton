@@ -1,0 +1,326 @@
+{
+  "fp32 col 32x32": {
+    "shape": [
+      32,
+      32
+    ],
+    "dtype": "fp32",
+    "is_col": true,
+    "best_plain_xor": {
+      "vec": 1,
+      "pp": 1,
+      "mp": 32,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 2
+    },
+    "best_gf2": {
+      "vec": 1,
+      "k": 5,
+      "mp": 32,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 19
+    },
+    "gf2_beats_xor": false
+  },
+  "fp32 col 64x32": {
+    "shape": [
+      64,
+      32
+    ],
+    "dtype": "fp32",
+    "is_col": true,
+    "best_plain_xor": {
+      "vec": 1,
+      "pp": 1,
+      "mp": 32,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 2
+    },
+    "best_gf2": {
+      "vec": 1,
+      "k": 5,
+      "mp": 32,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 19
+    },
+    "gf2_beats_xor": false
+  },
+  "fp32 row 32x32": {
+    "shape": [
+      32,
+      32
+    ],
+    "dtype": "fp32",
+    "is_col": false,
+    "best_plain_xor": {
+      "vec": 1,
+      "pp": 1,
+      "mp": 1,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 1
+    },
+    "best_gf2": {
+      "vec": 4,
+      "k": 3,
+      "mp": 8,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 13
+    },
+    "gf2_beats_xor": false
+  },
+  "fp32 row 64x32": {
+    "shape": [
+      64,
+      32
+    ],
+    "dtype": "fp32",
+    "is_col": false,
+    "best_plain_xor": {
+      "vec": 1,
+      "pp": 1,
+      "mp": 1,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 1
+    },
+    "best_gf2": {
+      "vec": 4,
+      "k": 3,
+      "mp": 8,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 13
+    },
+    "gf2_beats_xor": false
+  },
+  "fp16 col 32x32": {
+    "shape": [
+      32,
+      32
+    ],
+    "dtype": "fp16",
+    "is_col": true,
+    "best_plain_xor": {
+      "vec": 1,
+      "pp": 1,
+      "mp": 32,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 2
+    },
+    "best_gf2": {
+      "vec": 2,
+      "k": 5,
+      "mp": 32,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 19
+    },
+    "gf2_beats_xor": false
+  },
+  "fp16 col 64x32": {
+    "shape": [
+      64,
+      32
+    ],
+    "dtype": "fp16",
+    "is_col": true,
+    "best_plain_xor": {
+      "vec": 1,
+      "pp": 1,
+      "mp": 32,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 2
+    },
+    "best_gf2": {
+      "vec": 2,
+      "k": 5,
+      "mp": 32,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 19
+    },
+    "gf2_beats_xor": false
+  },
+  "fp16 row 32x32": {
+    "shape": [
+      32,
+      32
+    ],
+    "dtype": "fp16",
+    "is_col": false,
+    "best_plain_xor": {
+      "vec": 1,
+      "pp": 1,
+      "mp": 1,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 1
+    },
+    "best_gf2": {
+      "vec": 8,
+      "k": 3,
+      "mp": 8,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 13
+    },
+    "gf2_beats_xor": false
+  },
+  "fp16 row 64x32": {
+    "shape": [
+      64,
+      32
+    ],
+    "dtype": "fp16",
+    "is_col": false,
+    "best_plain_xor": {
+      "vec": 1,
+      "pp": 1,
+      "mp": 1,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 1
+    },
+    "best_gf2": {
+      "vec": 8,
+      "k": 3,
+      "mp": 8,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 13
+    },
+    "gf2_beats_xor": false
+  },
+  "int8 col 32x32": {
+    "shape": [
+      32,
+      32
+    ],
+    "dtype": "int8",
+    "is_col": true,
+    "best_plain_xor": {
+      "vec": 1,
+      "pp": 1,
+      "mp": 32,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 2
+    },
+    "best_gf2": {
+      "vec": 4,
+      "k": 5,
+      "mp": 32,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 19
+    },
+    "gf2_beats_xor": false
+  },
+  "int8 col 64x32": {
+    "shape": [
+      64,
+      32
+    ],
+    "dtype": "int8",
+    "is_col": true,
+    "best_plain_xor": {
+      "vec": 2,
+      "pp": 1,
+      "mp": 32,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 5
+    },
+    "best_gf2": {
+      "vec": 4,
+      "k": 5,
+      "mp": 32,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 19
+    },
+    "gf2_beats_xor": false
+  },
+  "int8 row 32x32": {
+    "shape": [
+      32,
+      32
+    ],
+    "dtype": "int8",
+    "is_col": false,
+    "best_plain_xor": {
+      "vec": 1,
+      "pp": 1,
+      "mp": 1,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 1
+    },
+    "best_gf2": {
+      "vec": 16,
+      "k": 3,
+      "mp": 8,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 13
+    },
+    "gf2_beats_xor": false
+  },
+  "int8 row 64x32": {
+    "shape": [
+      64,
+      32
+    ],
+    "dtype": "int8",
+    "is_col": false,
+    "best_plain_xor": {
+      "vec": 1,
+      "pp": 1,
+      "mp": 1,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 1
+    },
+    "best_gf2": {
+      "vec": 16,
+      "k": 3,
+      "mp": 8,
+      "wf": 1.0,
+      "conf": 0.0,
+      "frac": 0.0,
+      "ops": 13
+    },
+    "gf2_beats_xor": false
+  }
+}

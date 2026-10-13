@@ -1,0 +1,23 @@
+{
+  "total_cases": 200,
+  "matched": 139,
+  "mismatches": 61,
+  "clusters": {
+    "P1_nw8": {
+      "count": 20,
+      "cause": "numRegs < vec: Thread owns 4 elems (8B), so compiler emits LDS/STS.64 (2 wf/inst). Model used vec=8 (16B, 4 wf/inst), overpredicting wf by 2x."
+    },
+    "P3_fp32_vec1": {
+      "count": 24,
+      "cause": "Blocked layout sizePerThread allows 128-bit LDS/STS.128 (vec=4, 16B). Model used vec=1 (4B scalar), predicting 32-lane scalar conflicts instead of 8-lane conflict-free quarter-warps."
+    },
+    "P4_fp32_vec1": {
+      "count": 16,
+      "cause": "Same as P3: blocked layout emits LDS/STS.128 (vec=4), conflict-free. Model used vec=1, predicting 96/192 conflicts."
+    },
+    "P5_32x64_linear": {
+      "count": 1,
+      "cause": "Unswizzled linear layout enabled LLVM to emit LDS.128 (16B, vec=16) instead of vec=8 (8B), halving instruction count."
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "ctrl_stock": {
+    "encoding": "vec=8, perPhase=2, maxPhase=4",
+    "pred_conf_per_inst": 0,
+    "pred_conf_total": 0,
+    "meas_total_conf": 0,
+    "meas_total_wf": 68,
+    "match": true
+  },
+  "ctrl_p1_m4": {
+    "encoding": "vec=8, perPhase=1, maxPhase=4",
+    "pred_conf_per_inst": 4,
+    "pred_conf_total": 32,
+    "meas_total_conf": 32,
+    "meas_total_wf": 100,
+    "match": true
+  },
+  "ctrl_p1_m2": {
+    "encoding": "vec=8, perPhase=1, maxPhase=2",
+    "pred_conf_per_inst": 12,
+    "pred_conf_total": 96,
+    "meas_total_conf": 96,
+    "meas_total_wf": 164,
+    "match": true
+  }
+}
