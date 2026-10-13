@@ -1,0 +1,21 @@
+# Item 7: Predictions for Nonzero ldmatrix Bank Conflicts
+# Date: 2026-10-13
+# Tile: 32x32 fp16 MMAv2, num_warps=2, Grid=(1,1,1) (1 CTA)
+# Dot: Operand A (32x32) in #shared, Operand B (32x32) in #shared
+# Epilogue: Direct store into #mma layout (0 LDS instructions, 0 epilogue conflicts)
+# Each CTA executes 8 LDSM instructions total (4 for A, 4 for B across 2 warps)
+
+# Kernel 1: ctrl_stock (vec=8, perPhase=2, maxPhase=4)
+# Simulator predicted ldmatrix conflicts per instruction: 0
+# Total predicted ldmatrix conflicts per CTA (8 LDSM): 0
+kernel: ctrl_stock | vec: 8 | perPhase: 2 | maxPhase: 4 | pred_conf_per_inst: 0 | pred_conf_cta: 0
+
+# Kernel 2: ctrl_p1_m4 (vec=8, perPhase=1, maxPhase=4)
+# Simulator predicted ldmatrix conflicts per instruction: 4
+# Total predicted ldmatrix conflicts per CTA (8 LDSM): 32
+kernel: ctrl_p1_m4 | vec: 8 | perPhase: 1 | maxPhase: 4 | pred_conf_per_inst: 4 | pred_conf_cta: 32
+
+# Kernel 3: ctrl_p1_m2 (vec=8, perPhase=1, maxPhase=2)
+# Simulator predicted ldmatrix conflicts per instruction: 12
+# Total predicted ldmatrix conflicts per CTA (8 LDSM): 96
+kernel: ctrl_p1_m2 | vec: 8 | perPhase: 1 | maxPhase: 2 | pred_conf_per_inst: 12 | pred_conf_cta: 96
